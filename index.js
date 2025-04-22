@@ -7,12 +7,11 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 
-// Allow cross-origin requests
-app.use(cors()); // Optional for regular routes
+app.use(cors());
 
 const io = new Server(server, {
   cors: {
-    origin: '*', // You can also set this to "http://127.0.0.1:5500" for more security
+    origin: '*', // For development; restrict in production
     methods: ['GET', 'POST']
   }
 });
@@ -23,15 +22,17 @@ const players = {};
 
 io.on('connection', (socket) => {
   console.log(`Player connected: ${socket.id}`);
-
   players[socket.id] = {
     x: 100,
     y: 100,
     id: socket.id,
   };
 
+  // Send all current players to the new player
   socket.emit('currentPlayers', players);
-  socket.broadcast.emit('newPlayer', players[socket.id]);
+
+  // Notify ALL clients (including the new one) about the new player
+  io.emit('newPlayer', players[socket.id]);
 
   socket.on('playerMovement', (movementData) => {
     if (players[socket.id]) {

@@ -27,13 +27,10 @@ function preload() {
   this.load.image('Interiors', 'assets/Interiors.png');
   this.load.image('Room_Builder', 'assets/Room_Builder.png');
   this.load.tilemapTiledJSON('map', 'assets/map.json');
-
-  // Spritesheets
   this.load.spritesheet('1_idle_down', 'assets/1_idle_down.png', { frameWidth: 16, frameHeight: 23 });
   this.load.spritesheet('1_idle_up', 'assets/1_idle_up.png', { frameWidth: 16, frameHeight: 23 });
   this.load.spritesheet('1_idle_left', 'assets/1_idle_left.png', { frameWidth: 16, frameHeight: 23 });
   this.load.spritesheet('1_idle_right', 'assets/1_idle_right.png', { frameWidth: 16, frameHeight: 23 });
-
   this.load.spritesheet('1_walk_down', 'assets/1_walk_down.png', { frameWidth: 16, frameHeight: 23 });
   this.load.spritesheet('1_walk_up', 'assets/1_walk_up.png', { frameWidth: 16, frameHeight: 24 });
   this.load.spritesheet('1_walk_left', 'assets/1_walk_left.png', { frameWidth: 16, frameHeight: 23 });
@@ -44,7 +41,6 @@ function create() {
   const map = this.make.tilemap({ key: 'map' });
   const Interiors = map.addTilesetImage('Interiors', 'Interiors');
   const Room_Builder = map.addTilesetImage('Room_Builder', 'Room_Builder');
-
   map.createLayer('Tile Layer 1', [Room_Builder, Interiors], 0, 0);
   map.createLayer('2', [Room_Builder, Interiors], 0, 0);
   map.createLayer('acc', [Room_Builder, Interiors], 0, 0);
@@ -58,6 +54,7 @@ function create() {
     collisionGroup.add(box);
     box.visible = false;
   });
+  this.collisionGroup = collisionGroup; // Attach to scene
 
   // Animations
   ['up', 'down', 'left', 'right'].forEach(dir => {
@@ -101,7 +98,10 @@ function create() {
   });
 
   socket.on('newPlayer', (newPlayer) => {
-    addOtherPlayer(this, newPlayer);
+    // Prevent duplicate local player
+    if (newPlayer.id !== socket.id) {
+      addOtherPlayer(this, newPlayer);
+    }
   });
 
   socket.on('playerMoved', (movedPlayer) => {
@@ -118,6 +118,8 @@ function create() {
 }
 
 function addOtherPlayer(scene, playerInfo) {
+  // Prevent duplicate
+  if (otherPlayers.getChildren().some(p => p.playerId === playerInfo.id)) return;
   const other = scene.physics.add.sprite(playerInfo.x, playerInfo.y, '1_idle_down');
   other.setScale(1.5);
   other.playerId = playerInfo.id;
@@ -129,10 +131,8 @@ let lastDirection = 'down';
 
 function update() {
   if (!player) return;
-
   const speed = 100;
   player.setVelocity(0);
-
   let moved = false;
 
   if (cursors.left.isDown) {
