@@ -22,6 +22,8 @@ const game = new Phaser.Game(config);
 let player;
 let cursors;
 let otherPlayers;
+let lastDirection = 'down';
+let wasMoving = false;
 
 function preload() {
   this.load.image('Interiors', 'assets/Interiors.png');
@@ -54,7 +56,7 @@ function create() {
     collisionGroup.add(box);
     box.visible = false;
   });
-  this.collisionGroup = collisionGroup; // Attach to scene
+  this.collisionGroup = collisionGroup;
 
   // Animations
   ['up', 'down', 'left', 'right'].forEach(dir => {
@@ -98,7 +100,6 @@ function create() {
   });
 
   socket.on('newPlayer', (newPlayer) => {
-    // Prevent duplicate local player
     if (newPlayer.id !== socket.id) {
       addOtherPlayer(this, newPlayer);
     }
@@ -108,6 +109,12 @@ function create() {
     const other = otherPlayers.getChildren().find(p => p.playerId === movedPlayer.id);
     if (other) {
       other.setPosition(movedPlayer.x, movedPlayer.y);
+      if (movedPlayer.isMoving) {
+        other.anims.play(`1_walk_${movedPlayer.direction}`, true);
+      } else {
+        other.anims.stop();
+        other.setTexture(`1_idle_${movedPlayer.direction}`);
+      }
     }
   });
 
@@ -118,16 +125,18 @@ function create() {
 }
 
 function addOtherPlayer(scene, playerInfo) {
-  // Prevent duplicate
   if (otherPlayers.getChildren().some(p => p.playerId === playerInfo.id)) return;
-  const other = scene.physics.add.sprite(playerInfo.x, playerInfo.y, '1_idle_down');
+  
+  const initialFrame = playerInfo.isMoving 
+    ? `1_walk_${playerInfo.direction}`
+    : `1_idle_${playerInfo.direction}`;
+  
+  const other = scene.physics.add.sprite(playerInfo.x, playerInfo.y, initialFrame);
   other.setScale(1.5);
   other.playerId = playerInfo.id;
   scene.physics.add.collider(other, scene.collisionGroup);
   otherPlayers.add(other);
 }
-
-let lastDirection = 'down';
 
 function update() {
   if (!player) return;
@@ -156,10 +165,17 @@ function update() {
     lastDirection = 'down';
     moved = true;
   } else {
-    player.anims.play('1_idle_' + lastDirection, true);
+    player.anims.play(`1_idle_${lastDirection}`, true);
   }
 
-  if (moved) {
-    socket.emit('playerMovement', { x: player.x, y: player.y });
+  // Force final position update when stopping
+  if (moved !== wasMoving) {
+    socket.emit('playerMovement', {
+      x: player.x,
+      y: player.y,
+      direction: lastDirection,
+      isMoving: moved
+    });
+    wasMoving = moved;
   }
 }

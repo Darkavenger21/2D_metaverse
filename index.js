@@ -11,7 +11,7 @@ app.use(cors());
 
 const io = new Server(server, {
   cors: {
-    origin: '*', // For development; restrict in production
+    origin: '*',
     methods: ['GET', 'POST']
   }
 });
@@ -26,18 +26,19 @@ io.on('connection', (socket) => {
     x: 100,
     y: 100,
     id: socket.id,
+    direction: 'down',
+    isMoving: false
   };
 
-  // Send all current players to the new player
   socket.emit('currentPlayers', players);
-
-  // Notify ALL clients (including the new one) about the new player
   io.emit('newPlayer', players[socket.id]);
 
   socket.on('playerMovement', (movementData) => {
     if (players[socket.id]) {
-      players[socket.id].x = movementData.x;
-      players[socket.id].y = movementData.y;
+      players[socket.id] = {
+        ...players[socket.id],
+        ...movementData
+      };
       socket.broadcast.emit('playerMoved', players[socket.id]);
     }
   });
